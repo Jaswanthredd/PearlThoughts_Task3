@@ -1,0 +1,35 @@
+name: Deploy Medusa to EC2
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.5.4
+      with:
+        ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+    - name: Copy files to EC2
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@98.80.71.189 "mkdir -p /home/ubuntu/medusa-backend"
+        scp -o StrictHostKeyChecking=no -r ./* ubuntu@98.80.71.189:/home/ubuntu/medusa-backend/
+        scp -o StrictHostKeyChecking=no ./docker-compose.yml ubuntu@98.80.71.189:/home/ubuntu/medusa-backend/
+        scp -o StrictHostKeyChecking=no ./Dockerfile ubuntu@98.80.71.189:/home/ubuntu/medusa-backend/
+
+    - name: SSH into EC2 and deploy
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@98.80.71.189 << 'EOF'
+          set -e
+          cd /home/ubuntu/medusa-backend || exit 1
+          docker-compose down || true
+          docker-compose up -d --build
+        EOF
